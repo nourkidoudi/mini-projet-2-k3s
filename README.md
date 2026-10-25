@@ -55,7 +55,7 @@ k8s/
   40-security/    RBAC (ServiceAccounts, Role, RoleBinding), NetworkPolicies
 secret.example.yaml   modèle avec de fausses valeurs
 docker-compose.yml    test local (phase 0)
-captures/             preuves utilisées dans ce document
+screenshots/          captures d'écran utilisées dans ce document
 ```
 
 ## 3. Prérequis
@@ -146,17 +146,17 @@ kubectl -n tasks delete pod backup-reader
 ### E1 : images versionnées et accessibles à tous les nœuds
 Les images sont versionnées (`1.0.0`, `1.1.0`) et publiées sur Docker Hub ; l'image de l'API apparaît avec son tag dans la capture E7/E8 (`nourki2003/tasks-api:1.0.0`).
 
-![Docker Hub](captures/e01-dockerhub.png)
+![Docker Hub](screenshots/16.png)
 
 ### E2 : namespace dédié, ResourceQuota et LimitRange
 Namespace `tasks`. Le quota limite le namespace (1 CPU et 1 Gi de requests, 2 CPU et 2 Gi de limits, 10 pods, 3 PVC). Le LimitRange impose 50m/64Mi en requests et 250m/256Mi en limits par défaut : un pod de test sans `resources` les reçoit automatiquement.
 
-![Quota et LimitRange](captures/e02-quota-limitrange.png)
+![Quota et LimitRange](screenshots/3.png)
 
 ### E3 : configuration externalisée (ConfigMap et Secret)
 Les paramètres non sensibles sont dans le ConfigMap `app-config` (`DB_HOST`, `DB_PORT`, `DB_NAME`, `API_PORT`). Les identifiants sont dans le Secret `db-credentials` (`POSTGRES_USER`, `POSTGRES_PASSWORD`).
 
-![ConfigMap et Secret](captures/e03-configmap-secret.png)
+![ConfigMap et Secret](screenshots/7.png)
 
 ### E4 : aucun secret versionné
 `.env` et `k8s/**/secret.yaml` sont dans le `.gitignore`. Seul `secret.example.yaml` (fausses valeurs) est versionné.
@@ -166,18 +166,18 @@ Les paramètres non sensibles sont dans le ConfigMap `app-config` (`DB_HOST`, `D
 ### E5 : base en StatefulSet avec volume persistant et Service headless
 Le StatefulSet `db` utilise un `volumeClaimTemplates` (PVC `data-db-0`, 1 Gi, `local-path`). Le Service `db` est headless (`CLUSTER-IP None`).
 
-![StatefulSet, Services et PVC](captures/e05-statefulset-svc-pvc.png)
+![StatefulSet, Services et PVC](screenshots/25.png)
 
 ### E6 : persistance des données
 Les lignes 3 et 4 sont présentes avant la suppression du pod `db-0` et toujours présentes après son retour (`Running`, âge de quelques secondes), car le nouveau pod réattache le même PVC. Les pods de l'API redémarrent une fois pendant l'arrêt de la base, puis se reconnectent seuls.
 
-![Persistance](captures/e06-persistance.png)
+![Persistance](screenshots/13.png)
 
 ### E7 : démarrage ordonné de l'API
 Un init container `wait-for-db` (busybox, boucle `nc -z db 5432`) retarde le démarrage de l'API. Le log montre ensuite la connexion réussie et la création de la table.
 
-![Init container](captures/e07-e08-init-container-resources.png)
-![Connexion à la base](captures/e07-connexion-bd.png)
+![Init container](screenshots/18.png)
+![Connexion à la base](screenshots/8.png)
 
 ### E8 : requests et limits sur chaque conteneur
 L'API a des requests de 50m / 64Mi et des limits de 250m / 128Mi ; l'init container a ses propres valeurs (voir la capture de l'init container ci-dessus). Les autres conteneurs reçoivent leurs valeurs du manifeste ou, à défaut, du LimitRange.
@@ -187,26 +187,26 @@ L'API a des requests de 50m / 64Mi et des limits de 250m / 128Mi ; l'init contai
 ### E9 : sondes
 Readiness sur `/ready` (délai 5 s, période 5 s) et liveness sur `/health` (délai 10 s, période 10 s).
 
-![Sondes](captures/e09-sondes.png)
+![Sondes](screenshots/19.png)
 
 ### E10 : exposition par Ingress
 Seul le frontend est exposé, sur `app.k3s.local`. L'application est utilisable depuis le navigateur, y compris après l'application des NetworkPolicies.
 
-![Ingress](captures/e10-ingress.png)
-![Application dans le navigateur](captures/e10-navigateur.png)
+![Ingress](screenshots/9.png)
+![Application dans le navigateur](screenshots/29.png)
 
 ### E11 : sauvegarde planifiée et restauration testée
 Le job `test-backup` se termine en `Complete` et le PVC `backup-pvc` est `Bound`. Le test de restauration : la ligne 3 est supprimée (seule la ligne 4 reste), le dump est rechargé avec `psql`, puis les lignes 3 et 4 sont de nouveau présentes.
 
-![Job de sauvegarde](captures/e11-backup-job.png)
-![Restauration](captures/e11-restauration.png)
+![Job de sauvegarde](screenshots/10.png)
+![Restauration](screenshots/11.png)
 
 ### E12 : RBAC
 Trois ServiceAccounts applicatifs (`api-sa`, `frontend-sa`, `db-sa`) avec `automountServiceAccountToken: false` : le pod de l'API ne contient aucun jeton (`/var/run/secrets/kubernetes.io/serviceaccount` n'existe pas). Le compte `dev-viewer` est limité au namespace par un Role : `get/list/watch` sur les pods, leurs logs et les services. Il peut lister les pods et lire les logs, mais ne peut ni supprimer un pod ni lire un Secret.
 
-![ServiceAccounts](captures/e12-serviceaccounts.png)
-![Pods et leur ServiceAccount](captures/e12-pods-serviceaccount.png)
-![Vérification des droits](captures/e12-can-i.png)
+![ServiceAccounts](screenshots/20.png)
+![Pods et leur ServiceAccount](screenshots/27.png)
+![Vérification des droits](screenshots/12.png)
 
 Limite connue : les pods du CronJob de sauvegarde utilisent encore le ServiceAccount `default`. Un `backup-sa` sans jeton monté est l'amélioration prévue.
 
@@ -216,8 +216,8 @@ Limite connue : les pods du CronJob de sauvegarde utilisent encore le ServiceAcc
 - **Base** : voir les exceptions justifiées ci-dessous.
 - Pod Security : label `enforce=baseline` actif sur le namespace ; l'essai de `restricted` (`--dry-run=server`) liste ce qui échoue.
 
-![securityContext et essai restricted](captures/e13-securitycontext-psa.png)
-![Label baseline](captures/e13-label-baseline.png)
+![securityContext et essai restricted](screenshots/21.png)
+![Label baseline](screenshots/24.png)
 
 **Exceptions de durcissement (justifiées)**
 
@@ -240,8 +240,8 @@ Une politique `default-deny-ingress` bloque tout le trafic entrant du namespace,
 | frontend | db | Non | `nc` depuis le frontend : exit code 1 |
 | autre pod (sans `tier: api`) | db | Non | `pg_isready` depuis un pod de test : `no response` |
 
-![Tests de blocage](captures/e14-networkpolicies-tests.png)
-![Sauvegardes après NetworkPolicies](captures/e14-backup-apres-netpol.png)
+![Tests de blocage](screenshots/22.png)
+![Sauvegardes après NetworkPolicies](screenshots/28.png)
 
 Limite : ces politiques ne filtrent que le trafic **entrant**. Un pod compromis peut encore initier des connexions sortantes vers n'importe quelle destination. Filtrer l'egress (en autorisant explicitement le DNS) est l'amélioration naturelle.
 
@@ -252,7 +252,7 @@ Les manifestes sont rangés par dossier (`00-namespace` à `40-security`) et ce 
 
 La suppression d'un pod de l'API n'interrompt pas le service : le second réplica continue à répondre pendant que Kubernetes recrée le pod supprimé.
 
-![Suppression d'un pod de l'API](captures/phase7-suppression-pod-api.png)
+![Suppression d'un pod de l'API](screenshots/14.png)
 
 ## 9. Difficultés rencontrées et enseignements
 
