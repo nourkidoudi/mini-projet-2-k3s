@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: backup-reader
+  namespace: tasks
+  labels: { app: tasks, tier: backup }
+spec:
+  restartPolicy: Never
+  containers:
+    - name: reader
+      image: postgres:16-alpine
+      command: ["sleep", "3600"]
+      env:
+        - name: PGPASSWORD
+          valueFrom: { secretKeyRef: { name: db-credentials, key: POSTGRES_PASSWORD } }
+      volumeMounts:
+        - { name: backup, mountPath: /backup }
+  volumes:
+    - name: backup
+      persistentVolumeClaim:
+        claimName: backup-pvc

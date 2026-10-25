@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: db
+  namespace: tasks
+spec:
+  clusterIP: None          # headless
+  selector:
+    app: tasks
+    tier: db
+  ports:
+    - port: 5432
+      targetPort: 5432

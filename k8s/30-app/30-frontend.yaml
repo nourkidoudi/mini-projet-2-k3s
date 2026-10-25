@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: tasks
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: tasks, tier: frontend }
+  template:
+    metadata:
+      labels: { app: tasks, tier: frontend }
+    spec:
+      serviceAccountName: frontend-sa    # compte dédié, sans jeton monté
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101                   # utilisateur de nginx-unprivileged
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: frontend
+          image: nourki2003/tasks-frontend:1.1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: nginx-conf
+              mountPath: /etc/nginx/conf.d/default.conf
+              subPath: default.conf
+            - name: tmp                  # nginx écrit ses fichiers d'exécution dans /tmp
+              mountPath: /tmp
+          readinessProbe:
+            httpGet: { path: /, port: 8080 }
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          resources:
+            requests: { cpu: 50m, memory: 32Mi }
+            limits: { cpu: 200m, memory: 128Mi }
+      volumes:
+        - name: nginx-conf
+          configMap:
+            name: frontend-nginx-conf
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-svc
+  namespace: tasks
+spec:
+  selector: { app: tasks, tier: frontend }
+  ports:
+    - port: 80
+      targetPort: 8080

@@ -1,0 +1,4 @@
+.env
+node_modules/
+# Secret Kubernetes réel : ne jamais versionner (garder secret.example.yaml)
+k8s/**/secret.yaml
